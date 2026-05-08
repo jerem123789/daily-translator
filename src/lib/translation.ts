@@ -10,5 +10,11 @@ export type TranslationResult = {
 };
 
 export function validateTranslationInput(request: TranslationRequest): boolean {
-  return !!(request.text?.trim() && request.sourceLanguage && request.targetLanguage);
+  if (!request.text?.trim()) {
+    throw new Error('Le texte à traduire est requis.');
+  }
+  if (request.sourceLanguage === request.targetLanguage) {
+    throw new Error('Choisis deux langues différentes.');
+  }
+  return true;
 }
