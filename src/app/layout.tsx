@@ -1,10 +1,22 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Daily Translator',
-  description: 'Traduction vocale instantanée',
-  viewport: 'width=device-width, initial-scale=1',
+  title: 'Daily Translator – Traduction vocale instantanée',
+  description: 'Traduisez instantanément à la voix dans 15 langues. Fonctionne sur mobile, tablette et ordinateur.',
+  keywords: ['traducteur', 'traduction vocale', 'vocal', 'mobile', 'multilingue'],
+  authors: [{ name: 'Jérémy Gonin', url: 'https://www.jeremyai.fr' }],
+  openGraph: {
+    title: 'Daily Translator',
+    description: 'Traduction vocale instantanée dans 15 langues',
+    type: 'website',
+  },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#2563eb',
 };
 
 export default function RootLayout({
@@ -14,9 +26,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr">
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-      </head>
       <body>{children}</body>
     </html>
   );
