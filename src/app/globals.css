@@ -29,6 +29,9 @@ body {
 
 body {
   min-height: 100vh;
+  /* Support for notched / safe-area phones (iPhone X+) */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 button,
@@ -40,11 +43,27 @@ select {
 
 button {
   cursor: pointer;
+  /* Ensure minimum touch target on mobile */
+  min-height: 44px;
+  touch-action: manipulation;
+}
+
+/* Accessibility: reduce motion when preferred */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 .translator-shell {
   min-height: 100vh;
   padding: 40px 16px;
+  /* Extra bottom padding for mobile bottom bar */
+  padding-bottom: calc(40px + env(safe-area-inset-bottom));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -117,12 +136,16 @@ button {
   font-size: 0.95rem;
   font-weight: 500;
   appearance: none;
+  -webkit-appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235b6475' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
   padding-right: 32px;
   cursor: pointer;
   transition: border-color 0.15s;
+  /* Minimum touch target */
+  min-height: 44px;
+  touch-action: manipulation;
 }
 
 .lang-select:focus {
@@ -134,8 +157,8 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: 1.5px solid var(--line);
   background: var(--card);
@@ -144,6 +167,7 @@ button {
   transition: all 0.2s;
   flex-shrink: 0;
   margin-top: 20px;
+  touch-action: manipulation;
 }
 
 .swap-button:hover {
@@ -171,6 +195,7 @@ button {
   transition: all 0.2s;
   position: relative;
   overflow: hidden;
+  touch-action: manipulation;
 }
 
 .microphone-button:hover:not(:disabled) {
@@ -256,6 +281,8 @@ button {
   resize: vertical;
   min-height: 120px;
   transition: border-color 0.15s;
+  /* Prevent auto-zoom on iOS when font-size < 16px */
+  font-size: max(16px, 0.92rem);
 }
 
 .text-grid textarea:focus {
@@ -292,6 +319,8 @@ button {
   white-space: nowrap;
   flex: 1;
   min-width: 120px;
+  min-height: 44px;
+  touch-action: manipulation;
 }
 
 .primary-button:hover:not(:disabled) {
@@ -311,6 +340,8 @@ button {
   white-space: nowrap;
   flex: 1;
   min-width: 120px;
+  min-height: 44px;
+  touch-action: manipulation;
 }
 
 .secondary-button:hover:not(:disabled) {
@@ -403,6 +434,7 @@ button {
 @media (max-width: 768px) {
   .translator-shell {
     padding: 20px 12px;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
     align-items: flex-start;
     min-height: auto;
   }
@@ -423,8 +455,8 @@ button {
   }
 
   .swap-button {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     font-size: 0.9rem;
     margin-top: 18px;
   }
@@ -451,14 +483,18 @@ button {
   }
 }
 
-/* === MOBILE (max 480px) === */
+/* === MOBILE PHONE - "appel" portrait (max 480px) === */
 @media (max-width: 480px) {
   .translator-shell {
     padding: 12px 8px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    /* Make sure it scrolls naturally on mobile */
+    align-items: flex-start;
+    min-height: 100svh;
   }
 
   .translator-card {
-    padding: 18px 14px 16px;
+    padding: 18px 14px 20px;
     border-radius: 16px;
   }
 
@@ -468,8 +504,10 @@ button {
 
   .app-subtitle {
     font-size: 0.82rem;
+    margin-bottom: 16px;
   }
 
+  /* Stack language selectors vertically on small phones */
   .controls-grid {
     grid-template-columns: 1fr;
     gap: 8px;
@@ -477,26 +515,33 @@ button {
 
   .swap-button {
     margin: 0 auto;
-    width: 38px;
-    height: 38px;
+    width: 44px;
+    height: 44px;
     order: 3;
+    /* Rotate 90deg to indicate vertical swap */
     transform: rotate(90deg);
   }
 
-  .swap-button:hover {
+  .swap-button:hover,
+  .swap-button:active {
     transform: rotate(270deg);
   }
 
   .microphone-button {
     padding: 18px 16px;
+    min-height: 80px;
   }
 
   .microphone-icon {
-    font-size: 1.5rem;
+    font-size: 1.8rem;
   }
 
   .microphone-title {
-    font-size: 0.95rem;
+    font-size: 1rem;
+  }
+
+  .microphone-subtitle {
+    font-size: 0.78rem;
   }
 
   .text-grid {
@@ -505,8 +550,11 @@ button {
   }
 
   .text-grid textarea {
-    min-height: 90px;
-    font-size: 0.88rem;
+    min-height: 100px;
+    /* Keep iOS auto-zoom prevention */
+    font-size: max(16px, 0.88rem);
+    padding: 12px;
+    resize: none;
   }
 
   .actions-row {
@@ -518,8 +566,9 @@ button {
   .secondary-button {
     width: 100%;
     min-width: unset;
-    font-size: 0.9rem;
-    padding: 12px;
+    font-size: 0.95rem;
+    padding: 14px;
+    border-radius: 14px;
   }
 
   .app-footer {
@@ -531,6 +580,11 @@ button {
 
   .history-panel li {
     padding: 10px 12px;
+    font-size: 0.88rem;
+  }
+
+  .voice-status {
+    font-size: 0.80rem;
   }
 }
 
