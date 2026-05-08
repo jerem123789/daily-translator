@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   buildHistoryEntry,
@@ -19,10 +18,13 @@ type TranslatorAppProps = {
 
 type BrowserSpeechRecognition = {
   lang: string;
+  continuous: boolean;
+  interimResults: boolean;
   onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
   onerror?: (() => void) | null;
   onend?: (() => void) | null;
   start: () => void;
+  stop: () => void;
 };
 
 type DictationMode = 'dictation' | 'dictation_and_translate';
@@ -62,6 +64,15 @@ function loadStoredHistory() {
   }
 }
 
+function getSpeechRecognitionConstructor(): (new () => BrowserSpeechRecognition) | null {
+  if (typeof window === 'undefined') return null;
+  return (
+    (window as unknown as { SpeechRecognition?: new () => BrowserSpeechRecognition }).SpeechRecognition ||
+    (window as unknown as { webkitSpeechRecognition?: new () => BrowserSpeechRecognition }).webkitSpeechRecognition ||
+    null
+  );
+}
+
 export function TranslatorApp({ fetcher = defaultFetcher }: TranslatorAppProps) {
   const [sourceLanguage, setSourceLanguage] = useState('fr');
   const [targetLanguage, setTargetLanguage] = useState('en');
@@ -77,11 +88,13 @@ export function TranslatorApp({ fetcher = defaultFetcher }: TranslatorAppProps) 
   const [activeThemeIndex, setActiveThemeIndex] = useState<Record<string, number>>({});
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
 
-  const canTranslate = validateTranslationInput({
-    text: sourceText,
-    sourceLanguage,
-    targetLanguage,
-  });
+  const canTranslate = (() => {
+    try {
+      return validateTranslationInput({ text: sourceText, sourceLanguage, targetLanguage });
+    } catch {
+      return false;
+    }
+  })();
 
   const peutDicter = hasSpeechRecognitionSupport;
   const canSpeak = typeof window !== 'undefined' && typeof window.speechSynthesis !== 'undefined';
@@ -99,19 +112,16 @@ export function TranslatorApp({ fetcher = defaultFetcher }: TranslatorAppProps) 
 
   useEffect(() => {
     const refreshSpeechRecognitionSupport = () => {
-      const obtainConstructeurDeReconnaissanceVocale = () => {
-        setHasSpeechRecognitionSupport(Boolean(obtainConstructeurDeReconnaissanceVocale()));
-      };
-      refreshSpeechRecognitionSupport();
-      window.addEventListener('focus', refreshSpeechRecognitionSupport);
-      document.addEventListener('visibilitychange', refreshSpeechRecognitionSupport);
-
-      return () => {
-        window.removeEventListener('focus', refreshSpeechRecognitionSupport);
-        document.removeEventListener('visibilitychange', refreshSpeechRecognitionSupport);
-      };
+      setHasSpeechRecognitionSupport(Boolean(getSpeechRecognitionConstructor()));
     };
     refreshSpeechRecognitionSupport();
+    window.addEventListener('focus', refreshSpeechRecognitionSupport);
+    document.addEventListener('visibilitychange', refreshSpeechRecognitionSupport);
+
+    return () => {
+      window.removeEventListener('focus', refreshSpeechRecognitionSupport);
+      document.removeEventListener('visibilitychange', refreshSpeechRecognitionSupport);
+    };
   }, []);
 
   useEffect(() => {
@@ -134,15 +144,6 @@ export function TranslatorApp({ fetcher = defaultFetcher }: TranslatorAppProps) 
 
     return () => window.clearInterval(timer);
   }, [targetLanguage, targetThemeCount]);
-
-  function getSpeechRecognitionConstructor() {
-    if (typeof window === 'undefined') return null;
-    return (
-      (window as unknown as { SpeechRecognition?: new () => BrowserSpeechRecognition }).SpeechRecognition ||
-      (window as unknown as { webkitSpeechRecognition?: new () => BrowserSpeechRecognition }).webkitSpeechRecognition ||
-      null
-    );
-  }
 
   async function handleTranslate() {
     if (!canTranslate) return;
@@ -174,7 +175,7 @@ export function TranslatorApp({ fetcher = defaultFetcher }: TranslatorAppProps) 
 
   function handleDictation(mode: DictationMode) {
     if (isListening) {
-      recognitionRef.current?.start();
+      recognitionRef.current?.stop();
       return;
     }
 
@@ -187,6 +188,9 @@ export function TranslatorApp({ fetcher = defaultFetcher }: TranslatorAppProps) 
 
     const recognition = new SpeechRecognition();
     recognition.lang = sourceLanguage;
+    // Mobile-friendly settings: single utterance, no interim results
+    recognition.continuous = false;
+    recognition.interimResults = false;
     recognition.onresult = (event) => {
       const transcript = Array.from(event.results)
         .map((result) => Array.from(result).map((r) => r.transcript).join(''))
@@ -240,7 +244,7 @@ export function TranslatorApp({ fetcher = defaultFetcher }: TranslatorAppProps) 
     setTranslationText(sourceText);
   }
 
-  const needsReadingHelp = pronunciation.trim() !== translationText.trim();
+  const needsReadingHelp = pronunciation.trim() !== '' && pronunciation.trim() !== translationText.trim();
 
   return (
     <div className="translator-shell">
@@ -298,12 +302,13 @@ export function TranslatorApp({ fetcher = defaultFetcher }: TranslatorAppProps) 
             type="button"
             className={`microphone-button${isListening ? ' is-listening' : ''}`}
             onClick={() => void handleDictation('dictation_and_translate')}
-            disabled={isListening || isLoading}
-            aria-label="Appuyer pour parler"
+            disabled={isLoading}
+            aria-label={isListening ? 'Arrêter la dictée' : 'Appuyer pour parler'}
+            aria-pressed={isListening}
           >
-            <span className="microphone-icon" aria-hidden="true">🎤</span>
+            <span className="microphone-icon" aria-hidden="true">{isListening ? '⏹' : '🎤'}</span>
             <span className="microphone-title">
-              {isListening && dictationMode === 'dictation_and_translate' ? 'Je t'écoute...' : 'Appuyer pour parler'}
+              {isListening && dictationMode === 'dictation_and_translate' ? 'Appuyer pour arrêter' : 'Appuyer pour parler'}
             </span>
             <span className="microphone-subtitle">
               {isListening && dictationMode === 'dictation_and_translate'
@@ -312,11 +317,14 @@ export function TranslatorApp({ fetcher = defaultFetcher }: TranslatorAppProps) 
             </span>
           </button>
 
-          {isLoading ? <p className="voice-status">Traduction en cours…</p> : null}
+          {isLoading ? <p className="voice-status" role="status">Traduction en cours…</p> : null}
           {peutDicter && !isListening && !isLoading ? (
             <p className="voice-status">Si le micro ne se lance pas, autorisez le micro dans votre navigateur.</p>
           ) : null}
-          {error ? <p className="voice-status voice-status-error">{error}</p> : null}
+          {!peutDicter && !isLoading ? (
+            <p className="voice-status voice-status-error">Reconnaissance vocale non supportée sur ce navigateur.</p>
+          ) : null}
+          {error ? <p className="voice-status voice-status-error" role="alert">{error}</p> : null}
         </div>
 
         <div className="text-grid">
@@ -327,39 +335,45 @@ export function TranslatorApp({ fetcher = defaultFetcher }: TranslatorAppProps) 
               value={sourceText}
               onChange={(event) => setSourceText(event.target.value)}
               placeholder="Ta phrase apparaîtra ici automatiquement"
-              rows={6}
+              rows={5}
+              inputMode="text"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="sentences"
+              spellCheck={false}
             />
           </label>
 
           <label>
-            Traduction
+            <span className="lang-label">Traduction</span>
             <textarea
               aria-label="Traduction"
               value={translationText}
               readOnly
               placeholder="La traduction s'affichera ici"
-              rows={6}
+              rows={5}
+              aria-live="polite"
             />
           </label>
         </div>
 
         {needsReadingHelp ? (
           <div className="history-panel">
-            <h2>Commenter le lire</h2>
+            <h2>Comment le lire</h2>
             <p className="history-empty">Prononciation simplifiée pour t'aider à comprendre et répéter.</p>
             <textarea aria-label="Prononciation" value={pronunciation} readOnly rows={3} />
           </div>
         ) : null}
 
         <div className="actions-row actions-row-secondary">
-          <button type="button" className="primary-button" onClick={() => void handleTranslate()} disabled={!canTranslate}>
+          <button type="button" className="primary-button" onClick={() => void handleTranslate()} disabled={!canTranslate || isLoading}>
             {isLoading ? 'Traduction...' : 'Traduire le texte'}
           </button>
           <button
             type="button"
             className="secondary-button"
             onClick={() => void handleDictation('dictation')}
-            disabled={isListening || isLoading}
+            disabled={isLoading}
             aria-label="Dicter le texte uniquement"
           >
             Dicter seulement
